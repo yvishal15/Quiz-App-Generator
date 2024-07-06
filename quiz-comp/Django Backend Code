@@ -1,0 +1,100 @@
+Step1: Set Up the Django Project
+
+bash
+Copy code
+django-admin startproject mcq_generator
+cd mcq_generator
+django-admin startapp quiz
+
+
+Step2:
+
+Configure MySQL Database
+
+In mcq_generator/settings.py, update the DATABASES setting:
+
+python
+Copy code
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'mcq_db',
+        'USER': 'your_mysql_username',
+        'PASSWORD': 'your_mysql_password',
+        'HOST': 'localhost',
+        'PORT': '3306',
+    }
+}
+
+
+Step3:
+
+Create Models
+
+In quiz/models.py:
+
+python
+Copy code
+from django.db import models
+
+class Question(models.Model):
+    text = models.CharField(max_length=255)
+
+class Choice(models.Model):
+    question = models.ForeignKey(Question, related_name='choices', on_delete=models.CASCADE)
+    text = models.CharField(max_length=255)
+    is_correct = models.BooleanField(default=False)
+
+
+
+Step4:
+
+Create Forms
+
+In quiz/forms.py:
+
+python
+Copy code
+from django import forms
+from .models import Question, Choice
+
+class QuestionForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        question = kwargs.pop('question')
+        super().__init__(*args, **kwargs)
+        self.fields['choice'] = forms.ModelChoiceField(
+            queryset=question.choices.all(),
+            widget=forms.RadioSelect
+        )
+
+
+
+Step5:
+
+
+Create Views
+
+In quiz/views.py:
+
+python
+Copy code
+from django.shortcuts import render, redirect, get_object_or_404
+from .models import Question
+from .forms import QuestionForm
+
+def quiz(request):
+    if request.method == 'POST':
+        question_id = request.POST.get('question_id')
+        question = get_object_or_404(Question, id=question_id)
+        form = QuestionForm(request.POST, question=question)
+        if form.is_valid():
+            choice = form.cleaned_data['choice']
+            if choice.is_correct:
+                feedback = "Correct!"
+            else:
+                feedback = "Wrong!"
+            return render(request, 'quiz/result.html', {'feedback': feedback})
+
+    question = Question.objects.order_by('?').first()
+    form = QuestionForm(question=question)
+    return render(request, 'quiz/question.html', {'form': form, 'question': question})
